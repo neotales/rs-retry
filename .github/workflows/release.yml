@@ -56,6 +56,11 @@ jobs:
       - name: Test
         run: cargo test --workspace --all-targets --all-features
 
+      # The README files are shipped inside the packages and compiled as
+      # doctests, so a broken sample is a broken release, not a broken example.
+      - name: Doc tests
+        run: cargo test --workspace --doc --all-features
+
       # The later dry runs can fail while the crates.io index has not caught up
       # with an upload from this same run. That failure is the index, not the
       # workspace. See RELEASE.md.

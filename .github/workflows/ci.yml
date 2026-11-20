@@ -52,6 +52,13 @@ jobs:
       - name: Test
         run: cargo test --workspace --all-targets --all-features
 
+      # Every README's Rust samples are doctests: each lib.rs pulls in its
+      # README with `#![doc = include_str!("../README.md")]`. `--all-targets`
+      # does not run doctests, so without this step the samples that ship to
+      # crates.io and docs.rs are never compiled.
+      - name: Doc tests
+        run: cargo test --workspace --doc --all-features
+
       - name: Documentation
         env:
           RUSTDOCFLAGS: "-D warnings"
@@ -101,3 +108,9 @@ jobs:
 
       - name: Test on the minimum supported Rust version
         run: cargo test --workspace --all-targets --all-features
+
+      # The README samples are doctests. A sample that needs a newer language
+      # feature than the declared minimum would otherwise break the crate for
+      # every reader on 1.100.0 while this job stayed green.
+      - name: Doc tests on the minimum supported Rust version
+        run: cargo test --workspace --doc --all-features
