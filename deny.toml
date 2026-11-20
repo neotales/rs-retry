@@ -1,4 +1,4 @@
-# Supply chain policy for one crate.
+# Supply chain policy for this repository's three published crates.
 #
 # Copied from the plab rs-lib workspace with the two RUSTSEC ignores removed.
 # Those entries name neotales-x509 and neotales-docker-compose, which are not in

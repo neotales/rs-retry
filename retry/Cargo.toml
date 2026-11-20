@@ -1,0 +1,17 @@
+[package]
+name = "neotales-retry"
+description = "An immutable retry policy with fixed, exponential, and jittered backoff, and no runtime"
+version = "0.0.0-alpha.0"
+edition = "2024"
+rust-version = "1.100"
+license = "MIT"
+repository = "https://github.com/neotales/rs-retry"
+authors = ["x0craft"]
+readme = "README.md"
+keywords = ["retry", "backoff", "jitter", "attempts"]
+categories = ["asynchronous", "development-tools"]
+
+[dependencies]
+
+[lints]
+workspace = true

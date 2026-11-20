@@ -4,6 +4,6 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 
 cargo fmt --all -- --check
-cargo clippy --all-targets --all-features -- -D warnings
-cargo test --all-targets --all-features
-RUSTDOCFLAGS="-D warnings" cargo doc --all-features --no-deps
+cargo clippy --workspace --all-targets --all-features -- -D warnings
+cargo test --workspace --all-targets --all-features
+RUSTDOCFLAGS="-D warnings" cargo doc --workspace --all-features --no-deps

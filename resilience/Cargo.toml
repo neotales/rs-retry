@@ -12,7 +12,7 @@ keywords = ["resilience", "retry", "timeout", "circuit-breaker", "bulkhead"]
 categories = ["asynchronous", "development-tools"]
 
 [dependencies]
-neotales-retry = { path = "..", version = "=0.0.0-alpha.0" }
+neotales-retry = { path = "../retry", version = "=0.0.0-alpha.0" }
 
 [lints]
 workspace = true
