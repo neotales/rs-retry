@@ -1,0 +1,19 @@
+[package]
+name = "neotales-resilience-http"
+description = "HTTP classification and replay checks for neotales-resilience"
+version = "0.0.0-alpha.0"
+edition = "2024"
+rust-version = "1.100"
+license = "MIT"
+repository = "https://github.com/neotales/rs-retry"
+authors = ["x0craft"]
+readme = "README.md"
+
+[lib]
+path = "src/lib.rs"
+
+[dependencies]
+http = "1"
+
+[lints]
+workspace = true

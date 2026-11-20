@@ -1,0 +1,39 @@
+[package]
+name = "neotales-retry"
+description = "An immutable retry policy with fixed, exponential, and jittered backoff, and no runtime"
+version = "0.0.0-alpha.0"
+edition = "2024"
+rust-version = "1.100"
+license = "MIT"
+repository = "https://github.com/neotales/rs-retry"
+authors = ["x0craft"]
+readme = "README.md"
+keywords = ["retry", "backoff", "jitter", "attempts"]
+categories = ["asynchronous", "development-tools"]
+
+[dependencies]
+
+[lints]
+workspace = true
+
+[workspace]
+resolver = "3"
+members = [".", "resilience", "resilience-http"]
+# The repository has three published crates. Without this, cargo commands run
+# against the root package only, and the two companions escape the gates that
+# CI runs without `--workspace`.
+default-members = [".", "resilience", "resilience-http"]
+
+[workspace.lints.rust]
+unsafe_code = "forbid"
+missing_docs = "warn"
+missing_debug_implementations = "warn"
+unreachable_pub = "warn"
+
+[workspace.lints.rustdoc]
+broken_intra_doc_links = "warn"
+private_intra_doc_links = "warn"
+
+[workspace.lints.clippy]
+all = "warn"
+pedantic = "warn"
