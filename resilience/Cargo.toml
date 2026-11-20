@@ -1,7 +1,7 @@
 [package]
 name = "neotales-resilience"
 description = "A policy pipeline for timeouts, retries, circuit breakers, and load shedding, with no runtime"
-version = "0.0.0-alpha.0"
+version = "0.0.0-alpha.1"
 edition = "2024"
 rust-version = "1.100"
 license = "MIT"
@@ -12,7 +12,7 @@ keywords = ["resilience", "retry", "timeout", "circuit-breaker", "bulkhead"]
 categories = ["asynchronous", "development-tools"]
 
 [dependencies]
-neotales-retry = { path = "../retry", version = "=0.0.0-alpha.0" }
+neotales-retry = { path = "../retry", version = "=0.0.0-alpha.1" }
 
 [lints]
 workspace = true

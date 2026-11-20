@@ -32,10 +32,9 @@ env:
 
 jobs:
   # Runs on both triggers. On workflow_dispatch this job is the whole release:
-  # checks and a `cargo publish --dry-run` of all three crates, never a real
-  # publish. The dry runs go in publish order, retry then resilience then
-  # resilience-http, because each later crate may depend on an earlier one by
-  # version as well as by path.
+  # checks and dry runs, never a real publish. The resilience dry run may fail
+  # only because its retry version is not in the index yet. That is expected on
+  # the releasing commit. The publish job uploads retry first and retries.
   check:
     name: pre-publish checks
     runs-on: ubuntu-latest
@@ -61,14 +60,32 @@ jobs:
       - name: Doc tests
         run: cargo test --workspace --doc --all-features
 
-      # The later dry runs can fail while the crates.io index has not caught up
-      # with an upload from this same run. That failure is the index, not the
-      # workspace. See RELEASE.md.
+      # retry and resilience-http can be packaged against the registry.
+      # resilience names neotales-retry by the version in this commit, which is
+      # not in the index until this release uploads it. That dry-run failure is
+      # expected on the releasing commit. Any other failure still fails the job.
+      # See RELEASE.md.
       - name: Package without publishing
         run: |
+          set -euo pipefail
           cargo publish -p neotales-retry --dry-run --locked
-          cargo publish -p neotales-resilience --dry-run --locked
           cargo publish -p neotales-resilience-http --dry-run --locked
+          set +e
+          output=$(cargo publish -p neotales-resilience --dry-run --locked 2>&1)
+          status=$?
+          set -e
+          printf '%s\n' "$output"
+          if [ "$status" -eq 0 ]; then
+            exit 0
+          fi
+          if printf '%s\n' "$output" | grep -F 'failed to select a version for the requirement' >/dev/null \
+            && printf '%s\n' "$output" | grep -F 'neotales-retry' >/dev/null \
+            && printf '%s\n' "$output" | grep -F "candidate versions found which didn't match" >/dev/null; then
+            echo "expected: resilience dry-run cannot see the unpublished retry version on the index yet"
+            exit 0
+          fi
+          echo "resilience dry-run failed for a reason other than the unpublished sibling version"
+          exit 1
 
   version:
     name: tag matches the crate versions
@@ -155,22 +172,73 @@ jobs:
         id: auth
         uses: rust-lang/crates-io-auth-action@3268eb413133e2960fa4ae0e963ca76380c54cd9 # v1.0.6
 
-      # Retry first: neotales-resilience depends on it by version.
-      - name: Publish the retry crate
+      # One exchange covers every crate in this repository whose trusted
+      # publisher matches release.yml and an empty environment. Publish retry
+      # first. resilience then retries while the index catches up.
+      # resilience-http does not depend on either, and still runs last so a
+      # failure names the crate. A re-run skips a version already on crates.io.
+      # Do not republish, and do not delete or move the tag.
+      - name: Publish all three crates
         env:
           CARGO_REGISTRY_TOKEN: ${{ steps.auth.outputs.token }}
-        run: cargo publish -p neotales-retry --locked
+        run: |
+          set -euo pipefail
 
-      # The upload can fail while the index has not caught up with the retry
-      # upload; that is index lag, and re-running the job is the fix.
-      - name: Publish the resilience crate
-        env:
-          CARGO_REGISTRY_TOKEN: ${{ steps.auth.outputs.token }}
-        run: cargo publish -p neotales-resilience --locked
+          version_of() {
+            python3 - "$1" <<'PY'
+          import sys
+          import tomllib
+          with open(sys.argv[1], "rb") as handle:
+              version = tomllib.load(handle)["package"]["version"]
+          if not isinstance(version, str):
+              raise SystemExit(f"{sys.argv[1]} version is not a string")
+          print(version)
+          PY
+          }
 
-      # resilience-http depends only on `http`, so it does not wait on the two
-      # above. It still runs last so a failure names the crate that failed.
-      - name: Publish the HTTP crate
-        env:
-          CARGO_REGISTRY_TOKEN: ${{ steps.auth.outputs.token }}
-        run: cargo publish -p neotales-resilience-http --locked
+          registry_has() {
+            local crate="$1" version="$2" code
+            code=$(curl -sS -o /dev/null -w '%{http_code}' \
+              -H 'User-Agent: neotales-release (https://github.com/neotales)' \
+              "https://crates.io/api/v1/crates/${crate}/${version}" || echo 000)
+            [ "$code" = "200" ]
+          }
+
+          publish_crate() {
+            local package="$1" manifest="$2"
+            local version attempt output status
+            version=$(version_of "$manifest")
+            if registry_has "$package" "$version"; then
+              echo "$package $version is already on crates.io; not publishing again"
+              return 0
+            fi
+            for attempt in $(seq 1 15); do
+              set +e
+              output=$(cargo publish -p "$package" --locked 2>&1)
+              status=$?
+              set -e
+              printf '%s\n' "$output"
+              if [ "$status" -eq 0 ]; then
+                echo "uploaded $package $version"
+                return 0
+              fi
+              if printf '%s\n' "$output" | grep -F 'already uploaded' >/dev/null; then
+                echo "$package $version already uploaded; not publishing again"
+                return 0
+              fi
+              if printf '%s\n' "$output" | grep -F 'failed to select a version for the requirement' >/dev/null \
+                || printf '%s\n' "$output" | grep -Eiq '429|rate limit|too many requests'; then
+                echo "retryable publish failure for $package (attempt $attempt); waiting 20s"
+                sleep 20
+                continue
+              fi
+              echo "publish of $package failed"
+              return 1
+            done
+            echo "publish of $package did not succeed after retries"
+            return 1
+          }
+
+          publish_crate neotales-retry retry/Cargo.toml
+          publish_crate neotales-resilience resilience/Cargo.toml
+          publish_crate neotales-resilience-http resilience-http/Cargo.toml

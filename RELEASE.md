@@ -15,8 +15,10 @@ This repository is a virtual workspace with three published crates:
 Publish order is `neotales-retry`, then `neotales-resilience`, then
 `neotales-resilience-http`. The first is a prerequisite of the second, so a
 later version of `neotales-resilience` cannot be published until the matching
-`neotales-retry` version is on crates.io. `neotales-resilience-http` has no
-sibling dependency but runs last so a failure names the crate that failed.
+`neotales-retry` version is on crates.io. On the releasing commit, the
+resilience dry run fails for that reason. That specific failure is expected. A
+compile failure is not. `neotales-resilience-http` has no sibling dependency
+but runs last so a failure names the crate that failed.
 
 ## The version rule
 
@@ -101,8 +103,15 @@ crate.
    updated lockfile with it. The lockfile is what the scheduled audit checks.
 2. Push the commit.
 3. Tag it `vX.Y.Z` and push the tag.
-4. The workflow runs the checks, then a dry run of all three crates, then
-   publishes them with a token minted for that run, in dependency order.
+4. The workflow runs the checks. The retry and resilience-http dry runs must
+   pass. The resilience dry run may fail only because that retry version is not
+   in the index yet; that is expected on the releasing commit, and any other
+   failure still fails the job. The publish job then uploads retry, waits
+   through index lag, uploads resilience, then resilience-http. One OIDC
+   exchange covers all three crates when each has a trusted publisher for this
+   repository, `release.yml`, and an empty environment. A re-run skips a
+   version already on crates.io. Do not republish it, and do not delete or move
+   the tag.
 
 A manual run, `workflow_dispatch`, runs the checks and the dry runs only. It
 never publishes, whatever branch it is started from.
@@ -130,4 +139,4 @@ cannot publish that crate later.
 | Publish job: OIDC exchange fails | The crate does not exist yet, or the trusted publisher does not match: wrong repository, wrong workflow filename, or an environment name that is set on one side and not the other. |
 | Publish job: version already uploaded | The version was published before, usually by the manual first release. Bump the version. |
 | Publish job: `cargo publish` rejects the token | Trusted Publishing Only mode is on and the crate has no trusted publisher configured. |
-| Publish job: `neotales-resilience` cannot find `neotales-retry =0.0.0-alpha.0` | The matching retry version is not on the registry yet, or the index has not caught up. Publish retry first and re-run the job. |
+| Publish job: `neotales-resilience` cannot select `neotales-retry` | Index lag after the retry upload. The job retries for a few minutes. If it still fails, confirm the version is on crates.io and re-run the job. The re-run skips a version already uploaded. Do not delete or move the tag, and do not publish that version again by hand. |
